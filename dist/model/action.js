@@ -6,4 +6,5 @@ var Action;
     Action["LEFT"] = "LEFT";
     Action["RENAME"] = "RENAME";
     Action["QUEUE"] = "QUEUE";
+    Action["MESSAGE"] = "MESSAGE";
 })(Action = exports.Action || (exports.Action = {}));

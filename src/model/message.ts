@@ -25,6 +25,10 @@ export class Message {
         this.action = action;
     }
 
+    public getDebugMessage(): string {
+        return this.debugMessage;
+    }
+
     public setDebugMessage(debugMessage: string): void {
         this.debugMessage = debugMessage;
     }

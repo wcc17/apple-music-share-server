@@ -15,6 +15,9 @@ var Message = /** @class */ (function () {
     Message.prototype.setAction = function (action) {
         this.action = action;
     };
+    Message.prototype.getDebugMessage = function () {
+        return this.debugMessage;
+    };
     Message.prototype.setDebugMessage = function (debugMessage) {
         this.debugMessage = debugMessage;
     };
