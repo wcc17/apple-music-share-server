@@ -4,6 +4,7 @@ import * as socketIo from 'socket.io';
 
 import { Message } from './model/message';
 import { Song } from './model/song';
+import { JSDictionary } from './dictionary';
 
 export class AppleMusicShareServer {
     public static readonly PORT:number = 8080;
@@ -13,7 +14,7 @@ export class AppleMusicShareServer {
     private port: string | number;
     private roomId: number = 100000;
 
-    private queue: Song[] = [];
+    private roomQueues: JSDictionary<string, Song[]> = new JSDictionary<string, Song[]>();
 
     constructor() {
         this.createApp();
@@ -84,6 +85,9 @@ export class AppleMusicShareServer {
             let roomId: number = this.getNextRoomId();
             socket.join(roomId);
 
+            //TODO: should I just do this before accessing the queue? Instead of relying on it being initialized here?
+            this.roomQueues[roomId] = [];
+
             message.getFromUser().setRoomId(roomId);
             message.setDebugMessage(message.getFromUser().getName() + ' created room with id: ' + roomId);
             this.io.sockets.in(roomId.toString()).emit('room-joined', message);
@@ -132,10 +136,11 @@ export class AppleMusicShareServer {
             let debugMessage: string = ': queued the song ' + song.attributes.name + ' by ' + song.attributes.artistName;
             console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
                 
-            this.queue.push(song);
+            let roomId = message.getFromUser().getRoomId();
+            this.roomQueues[roomId].push(song);
             
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.queue);
+            message.setCurrentQueue(this.roomQueues[roomId]);
             this.io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
         }
     }
@@ -148,8 +153,9 @@ export class AppleMusicShareServer {
             let debugMessage: string = ': requested the current queue';
             console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
     
+            let roomId = message.getFromUser().getRoomId();
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.queue);
+            message.setCurrentQueue(this.roomQueues[roomId]);
             this.io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
         }
     }

@@ -4,10 +4,11 @@ var http_1 = require("http");
 var express = require("express");
 var socketIo = require("socket.io");
 var message_1 = require("./model/message");
+var dictionary_1 = require("./dictionary");
 var AppleMusicShareServer = /** @class */ (function () {
     function AppleMusicShareServer() {
         this.roomId = 100000;
-        this.queue = [];
+        this.roomQueues = new dictionary_1.JSDictionary();
         this.createApp();
         this.config();
         this.createServer();
@@ -49,6 +50,7 @@ var AppleMusicShareServer = /** @class */ (function () {
                 _this.handleQueueRequest(m);
             });
             socket.on('disconnect', function () {
+                //TODO: do I need to disconnect this particular user from the room they're in?
                 console.log('Client disconnected');
             });
         });
@@ -61,6 +63,7 @@ var AppleMusicShareServer = /** @class */ (function () {
             && message.getFromUser().getName()) {
             var roomId = this.getNextRoomId();
             socket.join(roomId);
+            this.roomQueues[roomId] = [];
             message.getFromUser().setRoomId(roomId);
             message.setDebugMessage(message.getFromUser().getName() + ' created room with id: ' + roomId);
             this.io.sockets.in(roomId.toString()).emit('room-joined', message);
@@ -72,7 +75,7 @@ var AppleMusicShareServer = /** @class */ (function () {
         var isValid = this.checkForValidRequest(message);
         var roomExists = this.checkExistingRoom(message.getFromUser().getRoomId());
         if (isValid && roomExists) {
-            message.setDebugMessage(message.getFromUser().getName() + ' joined room with id: ' + message.getFromUser().getRoomId);
+            message.setDebugMessage(message.getFromUser().getName() + ' joined room with id: ' + message.getFromUser().getRoomId());
             socket.join(message.getFromUser().getRoomId());
             this.io.sockets.in(message.getFromUser().getRoomId().toString()).emit('room-joined', message);
             console.log('[server](message): %s', message.getDebugMessage());
@@ -96,9 +99,10 @@ var AppleMusicShareServer = /** @class */ (function () {
         if (isValid) {
             var debugMessage = ': queued the song ' + song.attributes.name + ' by ' + song.attributes.artistName;
             console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
-            this.queue.push(song);
+            var roomId = message.getFromUser().getRoomId();
+            this.roomQueues[roomId].push(song);
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.queue);
+            message.setCurrentQueue(this.roomQueues[roomId]);
             this.io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
         }
     };
@@ -108,8 +112,9 @@ var AppleMusicShareServer = /** @class */ (function () {
         if (isValid) {
             var debugMessage = ': requested the current queue';
             console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
+            var roomId = message.getFromUser().getRoomId();
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.queue);
+            message.setCurrentQueue(this.roomQueues[roomId]);
             this.io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
         }
     };
@@ -133,6 +138,7 @@ var AppleMusicShareServer = /** @class */ (function () {
         }
         return false;
     };
+    //TODO: need to do this in a way that old roomIds can be re-used without restarting the whole server
     AppleMusicShareServer.prototype.getNextRoomId = function () {
         this.roomId++;
         while (this.checkExistingRoom(this.roomId)) {
