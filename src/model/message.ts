@@ -1,10 +1,12 @@
 import { User } from './user';
 import { Action } from './action';
+import { Song } from './song';
 
 export class Message {
     private from: User;
     private action: Action;
     private debugMessage: string;
+    private currentQueue: Song[];
 
     constructor(message) {
         this.from = new User(message.from);
@@ -19,7 +21,19 @@ export class Message {
         return this.action;
     }
 
+    public setAction(action: Action): void {
+        this.action = action;
+    }
+
     public setDebugMessage(debugMessage: string): void {
         this.debugMessage = debugMessage;
+    }
+
+    public getCurrentQueue(): Song[] {
+        return this.currentQueue;
+    }
+
+    public setCurrentQueue(queue: Song[]): void {
+        this.currentQueue = queue;
     }
 }

@@ -12,8 +12,17 @@ var Message = /** @class */ (function () {
     Message.prototype.getAction = function () {
         return this.action;
     };
+    Message.prototype.setAction = function (action) {
+        this.action = action;
+    };
     Message.prototype.setDebugMessage = function (debugMessage) {
         this.debugMessage = debugMessage;
+    };
+    Message.prototype.getCurrentQueue = function () {
+        return this.currentQueue;
+    };
+    Message.prototype.setCurrentQueue = function (queue) {
+        this.currentQueue = queue;
     };
     return Message;
 }());

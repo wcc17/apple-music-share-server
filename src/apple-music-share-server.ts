@@ -13,6 +13,8 @@ export class AppleMusicShareServer {
     private io: SocketIO.Server;
     private port: string | number;
 
+    private queue: Song[] = [];
+
     constructor() {
         this.createApp();
         this.config();
@@ -46,32 +48,57 @@ export class AppleMusicShareServer {
             console.log('Connected client on port %s.', this.port);
             
             socket.on('message', (m: any) => {
-                let newMessage = new Message(m);
-
-                switch(newMessage.getAction()) {
-                    case Action.QUEUE:
-                        let song: Song = m.content;
-                        //TODO: do something with the song
-                        let debugMessage: string = ': queued the song ' 
-                            + song.attributes.name 
-                            + ' by ' + song.attributes.artistName;
-                        newMessage.setDebugMessage(debugMessage);
-                        console.log('[server](message): %s', newMessage.getFromUser().getName() + debugMessage);
-                        break;
-                    default:
-                        let message: string = m.content;
-                        console.log('[server](message): %s', newMessage.getFromUser().getName() + ': ' + message);
-                        newMessage.setDebugMessage(message);
-                        break;
-                }
-
-                this.io.emit('message', newMessage);
+                this.handleMessage(m);
             });
+
+            socket.on('queue', (m: any) => {
+                this.handleQueue(m, m.content);
+            });
+
+            socket.on('queue-request', (m: any) => {
+                this.handleQueueRequest(m);
+            })
 
             socket.on('disconnect', () => {
                 console.log('Client disconnected');
             });
         });
+    }
+
+    private handleMessage(m: any): void {
+        let message = new Message(m);
+
+        message.setDebugMessage(m.content);
+        console.log('[server](message): %s', message.getFromUser().getName() + ': ' + m.content);
+
+        this.io.emit('message', message);
+    }
+
+    private handleQueue(m: any, song: Song): void {
+        let message = new Message(m);
+
+        let debugMessage: string = ': queued the song ' 
+            + song.attributes.name 
+            + ' by ' + song.attributes.artistName;
+        console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
+            
+        this.queue.push(song);
+        
+        message.setDebugMessage(debugMessage);
+        message.setCurrentQueue(this.queue);
+        this.io.emit('queue', message);
+    }
+
+    private handleQueueRequest(m: any): void {
+        let message = new Message(m);
+
+        let debugMessage: string = ': requested the current queue';
+        console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
+
+        message.setAction(Action.QUEUE);
+        message.setDebugMessage(debugMessage);
+        message.setCurrentQueue(this.queue);
+        this.io.emit('queue', message);
     }
 
     public getApp(): express.Application {
