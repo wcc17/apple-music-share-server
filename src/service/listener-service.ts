@@ -36,7 +36,7 @@ export class ListenerService {
     public handleJoinRoom(io: any, m: any, socket: any): void {
         let message = new Message(m);
         let isValid: boolean = this.checkForValidRequest(message);
-        let roomExists: boolean = this.checkExistingRoom(io, message.getFromUser().getRoomId());
+        let roomExists: boolean = this.checkExistingRoom(io.sockets.adapter.rooms, message.getFromUser().getRoomId());
     
         if(isValid && roomExists) {
             message.setDebugMessage(message.getFromUser().getName() + ' joined room with id: ' + message.getFromUser().getRoomId());

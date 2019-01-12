@@ -26,7 +26,7 @@ var ListenerService = /** @class */ (function () {
     ListenerService.prototype.handleJoinRoom = function (io, m, socket) {
         var message = new message_1.Message(m);
         var isValid = this.checkForValidRequest(message);
-        var roomExists = this.checkExistingRoom(io, message.getFromUser().getRoomId());
+        var roomExists = this.checkExistingRoom(io.sockets.adapter.rooms, message.getFromUser().getRoomId());
         if (isValid && roomExists) {
             message.setDebugMessage(message.getFromUser().getName() + ' joined room with id: ' + message.getFromUser().getRoomId());
             socket.join(message.getFromUser().getRoomId());
