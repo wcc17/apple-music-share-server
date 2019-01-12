@@ -1,7 +1,9 @@
 {
     "files": [
       "src/*.ts",
-      "src/model/*.ts"
+      "src/model/*.ts",
+      "src/util/*.ts",
+      "src/service/*.ts"
     ],
     "compilerOptions": {
       "target": "es5"
