@@ -5,6 +5,7 @@ var dictionary_1 = require("../util/dictionary");
 var ListenerService = /** @class */ (function () {
     function ListenerService() {
         this.roomQueues = new dictionary_1.JSDictionary();
+        this.roomUsers = new dictionary_1.JSDictionary();
         this.roomId = 100000;
     }
     ListenerService.prototype.handleCreateRoom = function (io, m, socket) {
@@ -15,8 +16,9 @@ var ListenerService = /** @class */ (function () {
             && message.getFromUser().getName()) {
             var roomId = this.getNextRoomId(io.sockets.adapter.rooms);
             socket.join(roomId);
-            //TODO: should I just do this before accessing the queue? Instead of relying on it being initialized here?
-            this.roomQueues[roomId] = [];
+            message.getFromUser().setIsLeader(true);
+            this.roomQueues.put(roomId.toString(), []);
+            this.roomUsers.put(roomId.toString(), [message.getFromUser()]);
             message.getFromUser().setRoomId(roomId);
             message.setDebugMessage(message.getFromUser().getName() + ' created room with id: ' + roomId);
             io.sockets.in(roomId.toString()).emit('room-joined', message);
@@ -31,6 +33,7 @@ var ListenerService = /** @class */ (function () {
             message.setDebugMessage(message.getFromUser().getName() + ' joined room with id: ' + message.getFromUser().getRoomId());
             socket.join(message.getFromUser().getRoomId());
             io.sockets.in(message.getFromUser().getRoomId().toString()).emit('room-joined', message);
+            this.addUserToRoom(message.getFromUser().getRoomId().toString(), message.getFromUser());
             console.log('[server](message): %s', message.getDebugMessage());
         }
         if (!roomExists) {
@@ -53,9 +56,9 @@ var ListenerService = /** @class */ (function () {
             var debugMessage = ': queued the song ' + song.attributes.name + ' by ' + song.attributes.artistName;
             console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
             var roomId = message.getFromUser().getRoomId();
-            this.roomQueues[roomId].push(song);
+            this.addSongToQueue(roomId.toString(), song);
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.roomQueues[roomId]);
+            message.setCurrentQueue(this.roomQueues.get(roomId.toString()));
             io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
         }
     };
@@ -67,8 +70,28 @@ var ListenerService = /** @class */ (function () {
             console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
             var roomId = message.getFromUser().getRoomId();
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.roomQueues[roomId]);
+            message.setCurrentQueue(this.roomQueues.get(roomId.toString()));
             io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
+        }
+    };
+    ListenerService.prototype.handleUpdateUser = function (io, m) {
+        var message = new message_1.Message(m);
+        var isValid = this.checkForValidRequest(message);
+        var roomId = message.getFromUser().getRoomId();
+        if (isValid && roomId) {
+            var debugMessage = ' is sending up to date info';
+            console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
+            var users = this.roomUsers.get(roomId.toString());
+            if (users && users.length) {
+                for (var _i = 0, users_1 = users; _i < users_1.length; _i++) {
+                    var user = users_1[_i];
+                    if (user.getId() === message.getFromUser().getId()) {
+                        //update playback state here.
+                        console.log(user.getId() + ' with name ' + user.getName() + ' is being updated');
+                        break;
+                    }
+                }
+            }
         }
     };
     ListenerService.prototype.checkForValidRequest = function (message) {
@@ -85,6 +108,12 @@ var ListenerService = /** @class */ (function () {
         }
         return false;
     };
+    ListenerService.prototype.getRoomQueues = function () {
+        return this.roomQueues;
+    };
+    ListenerService.prototype.getRoomUsers = function () {
+        return this.roomUsers;
+    };
     ListenerService.prototype.checkExistingRoom = function (rooms, roomId) {
         if (rooms[roomId]) {
             return true;
@@ -98,6 +127,27 @@ var ListenerService = /** @class */ (function () {
             this.roomId++;
         }
         return this.roomId;
+    };
+    ListenerService.prototype.addSongToQueue = function (key, song) {
+        this.addObjectToQueue(key, song, this.roomQueues);
+    };
+    ListenerService.prototype.addUserToRoom = function (key, user) {
+        this.addObjectToQueue(key, user, this.roomUsers);
+    };
+    ListenerService.prototype.addObjectToQueue = function (key, obj, queue) {
+        if (queue.get(key)) {
+            var arr = queue[key];
+            if (arr) {
+                arr.push(obj);
+            }
+            else {
+                arr = [obj];
+            }
+            queue.put(key, arr);
+        }
+        else {
+            queue.put(key, [obj]);
+        }
     };
     return ListenerService;
 }());

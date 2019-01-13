@@ -1,14 +1,17 @@
 import { Message } from '../model/message';
 import { Song } from '../model/song';
+import { User } from '../model/user';
 import { JSDictionary } from '../util/dictionary';
 
 export class ListenerService {
 
     private roomQueues: JSDictionary<string, Song[]>;
+    private roomUsers: JSDictionary<string, User[]>;
     private roomId: number;
 
     constructor() {
         this.roomQueues = new JSDictionary<string, Song[]>();
+        this.roomUsers = new JSDictionary<string, User[]>();
         this.roomId = 100000;
     }
 
@@ -21,9 +24,11 @@ export class ListenerService {
     
             let roomId: number = this.getNextRoomId(io.sockets.adapter.rooms);
             socket.join(roomId);
+
+            message.getFromUser().setIsLeader(true);
     
-            //TODO: should I just do this before accessing the queue? Instead of relying on it being initialized here?
-            this.roomQueues[roomId] = [];
+            this.roomQueues.put(roomId.toString(), []);
+            this.roomUsers.put(roomId.toString(), [message.getFromUser()]);
     
             message.getFromUser().setRoomId(roomId);
             message.setDebugMessage(message.getFromUser().getName() + ' created room with id: ' + roomId);
@@ -43,6 +48,8 @@ export class ListenerService {
             
             socket.join(message.getFromUser().getRoomId());
             io.sockets.in(message.getFromUser().getRoomId().toString()).emit('room-joined', message);
+
+            this.addUserToRoom(message.getFromUser().getRoomId().toString(), message.getFromUser());
     
             console.log('[server](message): %s', message.getDebugMessage());
         }
@@ -74,10 +81,10 @@ export class ListenerService {
             console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
                 
             let roomId = message.getFromUser().getRoomId();
-            this.roomQueues[roomId].push(song);
+            this.addSongToQueue(roomId.toString(), song);
             
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.roomQueues[roomId]);
+            message.setCurrentQueue(this.roomQueues.get(roomId.toString()));
             io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
         }
     }
@@ -92,8 +99,30 @@ export class ListenerService {
     
             let roomId = message.getFromUser().getRoomId();
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.roomQueues[roomId]);
+            message.setCurrentQueue(this.roomQueues.get(roomId.toString()));
             io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
+        }
+    }
+
+    public handleUpdateUser(io: any, m: any): void {
+        let message = new Message(m);
+        let isValid: boolean = this.checkForValidRequest(message);
+        let roomId = message.getFromUser().getRoomId();
+
+        if(isValid && roomId) {
+            let debugMessage: string = ' is sending up to date info';
+            console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
+
+            let users: User[] = this.roomUsers.get(roomId.toString());
+            if(users && users.length) {
+                for(let user of users) {
+                    if(user.getId() === message.getFromUser().getId()) {
+                        //update playback state here.
+                        console.log(user.getId() + ' with name ' + user.getName() + ' is being updated');
+                        break;
+                    }
+                }
+            }
         }
     }
     
@@ -110,6 +139,14 @@ export class ListenerService {
             console.log('User made a request with missing info');
         }
         return false;
+    }
+
+    public getRoomQueues(): JSDictionary<string, Song[]> {
+        return this.roomQueues;
+    }
+
+    public getRoomUsers(): JSDictionary<string, User[]> {
+        return this.roomUsers;
     }
     
     private checkExistingRoom(rooms: any[], roomId: number): boolean {
@@ -129,5 +166,29 @@ export class ListenerService {
         }
     
         return this.roomId;
+    }
+
+    private addSongToQueue(key: string, song: Song) {
+        this.addObjectToQueue(key, song, this.roomQueues);
+    }
+
+    private addUserToRoom(key: string, user: User) {
+        this.addObjectToQueue(key, user, this.roomUsers);
+    }
+
+    private addObjectToQueue(key: string, obj: any, queue: JSDictionary<string, any[]>): void {
+        if(queue.get(key)) {
+            let arr: any[] = queue[key];
+
+            if(arr) {
+                arr.push(obj);
+            } else {
+                arr = [obj];
+            }
+
+            queue.put(key, arr);
+        } else {
+            queue.put(key, [ obj ]);
+        }
     }
 }

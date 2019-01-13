@@ -6,12 +6,14 @@ var socketIo = require("socket.io");
 var listener_service_1 = require("./service/listener-service");
 var AppleMusicShareServer = /** @class */ (function () {
     function AppleMusicShareServer() {
-        this.listenerService = new listener_service_1.ListenerService();
         this.createApp();
         this.config();
         this.createServer();
         this.sockets();
         this.listen();
+        this.listenerService = new listener_service_1.ListenerService();
+        // this.emitService = new EmitService(this.listenerService.getRoomQueues(), 
+        //     this.listenerService.getRoomUsers(), this.io.sockets.adapter.rooms, this.io);
     }
     AppleMusicShareServer.prototype.createApp = function () {
         this.app = express();
@@ -46,6 +48,9 @@ var AppleMusicShareServer = /** @class */ (function () {
             });
             socket.on('queue-request', function (m) {
                 _this.listenerService.handleQueueRequest(_this.io, m);
+            });
+            socket.on('update-user', function (m) {
+                _this.listenerService.handleUpdateUser(_this.io, m);
             });
             socket.on('disconnect', function () {
                 //TODO: do I need to disconnect this particular user from the room they're in?

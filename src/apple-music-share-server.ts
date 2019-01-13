@@ -2,6 +2,7 @@ import { createServer, Server } from 'http';
 import * as express from 'express';
 import * as socketIo from 'socket.io';
 import { ListenerService } from './service/listener-service';
+import { EmitService } from './service/emit-service';
 
 export class AppleMusicShareServer {
     public static readonly PORT:number = 8080;
@@ -11,15 +12,18 @@ export class AppleMusicShareServer {
     private port: string | number;
 
     private listenerService: ListenerService;
+    private emitService: EmitService;
 
     constructor() {
-        this.listenerService = new ListenerService();
-
         this.createApp();
         this.config();
         this.createServer();
         this.sockets();
         this.listen();
+
+        this.listenerService = new ListenerService();
+        // this.emitService = new EmitService(this.listenerService.getRoomQueues(), 
+        //     this.listenerService.getRoomUsers(), this.io.sockets.adapter.rooms, this.io);
     }
 
     private createApp(): void {
@@ -64,7 +68,11 @@ export class AppleMusicShareServer {
 
             socket.on('queue-request', (m: any) => {
                 this.listenerService.handleQueueRequest(this.io, m);
-            })
+            });
+
+            socket.on('update-user', (m: any) => {
+                this.listenerService.handleUpdateUser(this.io, m);
+            });
 
             socket.on('disconnect', () => {
                 //TODO: do I need to disconnect this particular user from the room they're in?
