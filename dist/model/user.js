@@ -26,12 +26,6 @@ var User = /** @class */ (function () {
     User.prototype.setIsLeader = function (isLeader) {
         this.isLeader = isLeader;
     };
-    User.prototype.isValidUser = function () {
-        if (this.id && this.name && this.roomId) {
-            return true;
-        }
-        return false;
-    };
     return User;
 }());
 exports.User = User;

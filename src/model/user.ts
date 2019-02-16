@@ -34,12 +34,4 @@ export class User {
     public setIsLeader(isLeader: boolean): void {
         this.isLeader = isLeader;
     }
-
-    public isValidUser(): boolean {
-        if(this.id && this.name && this.roomId) {
-            return true;
-        } 
-
-        return false;
-    }
 }

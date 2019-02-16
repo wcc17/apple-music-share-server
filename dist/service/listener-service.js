@@ -1,153 +1,136 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var message_1 = require("../model/message");
-var dictionary_1 = require("../util/dictionary");
+var client_update_message_1 = require("../model/client-update-message");
+var room_service_1 = require("./room-service");
+var user_service_1 = require("./user-service");
 var ListenerService = /** @class */ (function () {
     function ListenerService() {
-        this.roomQueues = new dictionary_1.JSDictionary();
-        this.roomUsers = new dictionary_1.JSDictionary();
-        this.roomId = 100000;
+        this.roomService = new room_service_1.RoomService();
+        this.userService = new user_service_1.UserService();
     }
     ListenerService.prototype.handleCreateRoom = function (io, m, socket) {
+        var debugMessage = '';
         var message = new message_1.Message(m);
-        if (message
-            && message.getFromUser()
-            && message.getFromUser().getId()
-            && message.getFromUser().getName()) {
-            var roomId = this.getNextRoomId(io.sockets.adapter.rooms);
-            socket.join(roomId);
+        var isValidUser = this.userService.checkForValidUserInMessageIgnoreRoomId(message);
+        if (isValidUser) {
+            debugMessage = 'created room';
+            var roomId = this.roomService.getNextRoomId(io);
             message.getFromUser().setIsLeader(true);
-            this.roomQueues.put(roomId.toString(), []);
-            this.roomUsers.put(roomId.toString(), [message.getFromUser()]);
             message.getFromUser().setRoomId(roomId);
-            message.setDebugMessage(message.getFromUser().getName() + ' created room with id: ' + roomId);
-            io.sockets.in(roomId.toString()).emit('room-joined', message);
-            console.log('[server](message): %s', message.getDebugMessage());
+            message.setDebugMessage(debugMessage);
+            socket.join(roomId);
+            this.roomService.addRoom(roomId.toString());
+            this.roomService.addUserToRoom(roomId.toString(), message.getFromUser());
+            this.emitMessageToRoom(io, roomId.toString(), 'room-joined', message);
         }
+        else {
+            debugMessage = 'failed to create room';
+            //TODO: need to emit to a specific client, if we didn't join a room then we can't emit to the room
+            // this.emitMessageToRoom(io, roomId.toString(), 'room-not-joined', message);
+        }
+        this.logMessage(message.getFromUser(), null, debugMessage);
     };
     ListenerService.prototype.handleJoinRoom = function (io, m, socket) {
+        var debugMessage = '';
         var message = new message_1.Message(m);
-        var isValid = this.checkForValidRequest(message);
-        var roomExists = this.checkExistingRoom(io.sockets.adapter.rooms, message.getFromUser().getRoomId());
-        if (isValid && roomExists) {
-            message.setDebugMessage(message.getFromUser().getName() + ' joined room with id: ' + message.getFromUser().getRoomId());
+        var roomId = message.getFromUser().getRoomId();
+        if (this.isValidRequest(io, roomId, message)) {
+            debugMessage = 'joined room';
+            this.roomService.addUserToRoom(message.getFromUser().getRoomId().toString(), message.getFromUser());
             socket.join(message.getFromUser().getRoomId());
-            io.sockets.in(message.getFromUser().getRoomId().toString()).emit('room-joined', message);
-            this.addUserToRoom(message.getFromUser().getRoomId().toString(), message.getFromUser());
-            console.log('[server](message): %s', message.getDebugMessage());
+            message.setDebugMessage(debugMessage);
+            this.emitMessageToRoom(io, roomId.toString(), 'room-joined', message);
         }
-        if (!roomExists) {
-            io.sockets.in(message.getFromUser().getRoomId().toString()).emit('room-not-joined', message);
+        else {
+            debugMessage = 'failed to join room';
+            //TODO: need to emit to a specific client, if we didn't join a room then we can't emit to the room
+            // this.emitMessageToRoom(io, roomId.toString(), 'room-not-joined', message);
         }
+        this.logMessage(message.getFromUser(), roomId, debugMessage);
     };
     ListenerService.prototype.handleMessage = function (io, m) {
+        var debugMessage = '';
         var message = new message_1.Message(m);
-        var isValid = this.checkForValidRequest(message);
-        if (isValid) {
-            message.setDebugMessage(m.content);
-            console.log('[server](message): %s', message.getFromUser().getName() + ': ' + m.content);
-            io.sockets.in(message.getFromUser().getRoomId().toString()).emit('message', message);
+        var roomId = message.getFromUser().getRoomId();
+        if (this.isValidRequest(io, roomId, message)) {
+            debugMessage = m.content;
+            message.setDebugMessage(debugMessage);
+            this.emitMessageToRoom(io, roomId.toString(), 'message', message);
         }
+        else {
+            debugMessage = 'failed to process message';
+        }
+        this.logMessage(message.getFromUser(), roomId, debugMessage);
     };
     ListenerService.prototype.handleQueue = function (io, m, song) {
+        var debugMessage = '';
         var message = new message_1.Message(m);
-        var isValid = this.checkForValidRequest(message);
-        if (isValid) {
-            var debugMessage = ': queued the song ' + song.attributes.name + ' by ' + song.attributes.artistName;
-            console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
-            var roomId = message.getFromUser().getRoomId();
-            this.addSongToQueue(roomId.toString(), song);
+        var roomId = message.getFromUser().getRoomId();
+        if (this.isValidRequest(io, roomId, message)) {
+            this.roomService.addSongToQueue(roomId.toString(), song);
+            debugMessage = ': queued the song ' + song.attributes.name + ' by ' + song.attributes.artistName;
             message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.roomQueues.get(roomId.toString()));
-            io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
+            message.setCurrentQueue(this.roomService.getRoomQueue(roomId.toString()));
+            this.emitMessageToRoom(io, roomId.toString(), 'queue', message);
         }
+        else {
+            debugMessage = 'failed to queue song';
+        }
+        this.logMessage(message.getFromUser(), roomId, debugMessage);
     };
     ListenerService.prototype.handleQueueRequest = function (io, m) {
+        var debugMessage = '';
         var message = new message_1.Message(m);
-        var isValid = this.checkForValidRequest(message);
-        if (isValid) {
-            var debugMessage = ': requested the current queue';
-            console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
-            var roomId = message.getFromUser().getRoomId();
-            message.setDebugMessage(debugMessage);
-            message.setCurrentQueue(this.roomQueues.get(roomId.toString()));
-            io.sockets.in(message.getFromUser().getRoomId().toString()).emit('queue', message);
-        }
-    };
-    ListenerService.prototype.handleUpdateUser = function (io, m) {
-        var message = new message_1.Message(m);
-        var isValid = this.checkForValidRequest(message);
         var roomId = message.getFromUser().getRoomId();
-        if (isValid && roomId) {
-            var debugMessage = ' is sending up to date info';
-            console.log('[server](message): %s', message.getFromUser().getName() + debugMessage);
-            var users = this.roomUsers.get(roomId.toString());
-            if (users && users.length) {
-                for (var _i = 0, users_1 = users; _i < users_1.length; _i++) {
-                    var user = users_1[_i];
-                    if (user.getId() === message.getFromUser().getId()) {
-                        //update playback state here.
-                        console.log(user.getId() + ' with name ' + user.getName() + ' is being updated');
-                        break;
-                    }
-                }
-            }
-        }
-    };
-    ListenerService.prototype.checkForValidRequest = function (message) {
-        if (message
-            && message.getFromUser()
-            && message.getFromUser().isValidUser()) {
-            return true;
-        }
-        if (message.getFromUser() && message.getFromUser().getName()) {
-            console.log('User ' + message.getFromUser().getName() + ' made a request with missing info');
+        var userId = message.getFromUser().getId();
+        var userName = message.getFromUser().getName();
+        if (this.isValidRequest(io, roomId, message)) {
+            debugMessage = 'requested the current queue';
+            message.setDebugMessage(debugMessage);
+            message.setCurrentQueue(this.roomService.getRoomQueue(roomId.toString()));
+            this.emitMessageToRoom(io, roomId.toString(), 'queue', message);
         }
         else {
-            console.log('User made a request with missing info');
+            debugMessage = 'queue request failed';
         }
-        return false;
+        this.logMessage(message.getFromUser(), roomId, debugMessage);
     };
-    ListenerService.prototype.getRoomQueues = function () {
-        return this.roomQueues;
-    };
-    ListenerService.prototype.getRoomUsers = function () {
-        return this.roomUsers;
-    };
-    ListenerService.prototype.checkExistingRoom = function (rooms, roomId) {
-        if (rooms[roomId]) {
-            return true;
-        }
-        return false;
-    };
-    //TODO: need to do this in a way that old roomIds can be re-used without restarting the whole server
-    ListenerService.prototype.getNextRoomId = function (rooms) {
-        this.roomId++;
-        while (this.checkExistingRoom(rooms, this.roomId)) {
-            this.roomId++;
-        }
-        return this.roomId;
-    };
-    ListenerService.prototype.addSongToQueue = function (key, song) {
-        this.addObjectToQueue(key, song, this.roomQueues);
-    };
-    ListenerService.prototype.addUserToRoom = function (key, user) {
-        this.addObjectToQueue(key, user, this.roomUsers);
-    };
-    ListenerService.prototype.addObjectToQueue = function (key, obj, queue) {
-        if (queue.get(key)) {
-            var arr = queue[key];
-            if (arr) {
-                arr.push(obj);
+    ListenerService.prototype.handleClientUpdate = function (io, m) {
+        var debugMessage = '';
+        var message = new client_update_message_1.ClientUpdateMessage(m);
+        var clientUser = message.getFromUser();
+        var roomId = message.getFromUser().getRoomId();
+        if (this.isValidRequest(io, roomId, message)) {
+            debugMessage = ' is sending up to date info to server';
+            var currentServerUser = this.roomService.getUserFromRoom(roomId.toString(), clientUser.getId());
+            var leaderServerUser = this.roomService.getLeaderFromRoom(roomId.toString());
+            if (currentServerUser.getId() === leaderServerUser.getId()) {
+                //the current user is the leader and we only need to update his info
             }
             else {
-                arr = [obj];
+                //the current user needs to be updated for the server and we need to send them the leader's updated info
             }
-            queue.put(key, arr);
         }
         else {
-            queue.put(key, [obj]);
+            debugMessage = 'client update request failed';
         }
+        this.logMessage(clientUser, roomId, debugMessage);
+    };
+    ListenerService.prototype.isValidRequest = function (io, roomId, message) {
+        var isValidUser = this.userService.checkForValidUserInMessage(message);
+        var isValidRoom = this.roomService.checkExistingRoom(io, roomId);
+        return (isValidUser && isValidRoom);
+    };
+    ListenerService.prototype.emitMessageToRoom = function (io, roomId, event, message) {
+        io.sockets.in(roomId).emit(event, message);
+    };
+    ListenerService.prototype.logMessage = function (user, roomId, message) {
+        var userId = (user && user.getId()) ? user.getId().toString() : 'not provided';
+        var userName = (user && user.getName()) ? user.getName() : 'not provided';
+        var roomIdString = (roomId) ? roomId.toString() : 'not provided';
+        var messageString = (message) ? message : 'not provided';
+        console.log('[%s][userId: %s][userName: %s][roomId: %s][message: %s]', new Date().toUTCString(), userId, userName, roomIdString, messageString);
     };
     return ListenerService;
 }());

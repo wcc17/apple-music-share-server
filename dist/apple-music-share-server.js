@@ -29,33 +29,40 @@ var AppleMusicShareServer = /** @class */ (function () {
     };
     AppleMusicShareServer.prototype.listen = function () {
         var _this = this;
+        //TODO: should not accept any messages dated before server start time. would need to be sending a timestamp from client
+        //TODO: should disconnect any users trying to send messages that don't have a roomID (unless its create or join room of course)
         this.server.listen(this.port, function () {
             console.log('Running server on port %s', _this.port);
         });
         this.io.on('connect', function (socket) {
-            console.log('Connected client on port %s.', _this.port);
-            socket.on('join-room', function (m) {
-                _this.listenerService.handleJoinRoom(_this.io, m, socket);
-            });
-            socket.on('create-room', function (m) {
-                _this.listenerService.handleCreateRoom(_this.io, m, socket);
-            });
-            socket.on('message', function (m) {
-                _this.listenerService.handleMessage(_this.io, m);
-            });
-            socket.on('queue', function (m) {
-                _this.listenerService.handleQueue(_this.io, m, m.content);
-            });
-            socket.on('queue-request', function (m) {
-                _this.listenerService.handleQueueRequest(_this.io, m);
-            });
-            socket.on('update-user', function (m) {
-                _this.listenerService.handleUpdateUser(_this.io, m);
-            });
-            socket.on('disconnect', function () {
-                //TODO: do I need to disconnect this particular user from the room they're in?
-                console.log('Client disconnected');
-            });
+            try {
+                console.log('Connected client on port %s.', _this.port);
+                socket.on('join-room', function (m) {
+                    _this.listenerService.handleJoinRoom(_this.io, m, socket);
+                });
+                socket.on('create-room', function (m) {
+                    _this.listenerService.handleCreateRoom(_this.io, m, socket);
+                });
+                socket.on('message', function (m) {
+                    _this.listenerService.handleMessage(_this.io, m);
+                });
+                socket.on('queue', function (m) {
+                    _this.listenerService.handleQueue(_this.io, m, m.content);
+                });
+                socket.on('queue-request', function (m) {
+                    _this.listenerService.handleQueueRequest(_this.io, m);
+                });
+                socket.on('client-update', function (m) {
+                    _this.listenerService.handleClientUpdate(_this.io, m);
+                });
+                socket.on('disconnect', function () {
+                    //TODO: do I need to disconnect this particular user from the room they're in?
+                    console.log('Client disconnected');
+                });
+            }
+            catch (error) {
+                console.log(error);
+            }
         });
     };
     AppleMusicShareServer.prototype.getApp = function () {

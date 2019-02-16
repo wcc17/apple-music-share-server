@@ -43,41 +43,47 @@ export class AppleMusicShareServer {
     }
 
     private listen(): void {
+        //TODO: should not accept any messages dated before server start time. would need to be sending a timestamp from client
+        //TODO: should disconnect any users trying to send messages that don't have a roomID (unless its create or join room of course)
         this.server.listen(this.port, () => {
             console.log('Running server on port %s', this.port);
         });
 
         this.io.on('connect', (socket: any) => {
-            console.log('Connected client on port %s.', this.port);
+            try {
+                console.log('Connected client on port %s.', this.port);
 
-            socket.on('join-room', (m: any) => {
-                this.listenerService.handleJoinRoom(this.io, m, socket);
-            });
+                socket.on('join-room', (m: any) => {
+                    this.listenerService.handleJoinRoom(this.io, m, socket);
+                });
 
-            socket.on('create-room', (m: any) => {
-                this.listenerService.handleCreateRoom(this.io, m, socket);
-            })
-            
-            socket.on('message', (m: any) => {
-                this.listenerService.handleMessage(this.io, m);
-            });
+                socket.on('create-room', (m: any) => {
+                    this.listenerService.handleCreateRoom(this.io, m, socket);
+                })
+                
+                socket.on('message', (m: any) => {
+                    this.listenerService.handleMessage(this.io, m);
+                });
 
-            socket.on('queue', (m: any) => {
-                this.listenerService.handleQueue(this.io, m, m.content);
-            });
+                socket.on('queue', (m: any) => {
+                    this.listenerService.handleQueue(this.io, m, m.content);
+                });
 
-            socket.on('queue-request', (m: any) => {
-                this.listenerService.handleQueueRequest(this.io, m);
-            });
+                socket.on('queue-request', (m: any) => {
+                    this.listenerService.handleQueueRequest(this.io, m);
+                });
 
-            socket.on('update-user', (m: any) => {
-                this.listenerService.handleUpdateUser(this.io, m);
-            });
+                socket.on('client-update', (m: any) => {
+                    this.listenerService.handleClientUpdate(this.io, m);
+                });
 
-            socket.on('disconnect', () => {
-                //TODO: do I need to disconnect this particular user from the room they're in?
-                console.log('Client disconnected');
-            });
+                socket.on('disconnect', () => {
+                    //TODO: do I need to disconnect this particular user from the room they're in?
+                    console.log('Client disconnected');
+                });
+            } catch (error) {
+                console.log(error);
+            }
         });
     }
 
