@@ -121,6 +121,7 @@ export class ListenerService {
         this.logMessage(message.getFromUser(), roomId, debugMessage);
     }
 
+    //TODO: this should be in its own service I think. SyncService or something like that. 
     public handleClientUpdate(io: any, m: any): void {
         let debugMessage = '';
         let message = new ClientUpdateMessage(m);
@@ -132,10 +133,13 @@ export class ListenerService {
 
             let currentServerUser = this.roomService.getUserFromRoom(roomId.toString(), clientUser.getId());
             let leaderServerUser = this.roomService.getLeaderFromRoom(roomId.toString());
-            if(currentServerUser.getId() === leaderServerUser.getId()) {
-                //the current user is the leader and we only need to update his info
+            if(leaderServerUser) {
+                if(currentServerUser.getId() === leaderServerUser.getId()) {
+                    //TODO: need to add the "next up" song to the message
+                    this.emitMessageToRoom(io, roomId.toString(), 'leader-update', message);
+                }
             } else {
-                //the current user needs to be updated for the server and we need to send them the leader's updated info
+                //TODO: we've lost our leader and need to elect a new one. why not the current user?
             }
         } else {
             debugMessage = 'client update request failed';
