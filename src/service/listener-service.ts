@@ -4,6 +4,7 @@ import { User } from '../model/user';
 import { ClientUpdateMessage } from '../model/client-update-message';
 import { RoomService } from './room-service';
 import { UserService } from './user-service';
+import { debug } from 'util';
 
 export class ListenerService {
 
@@ -121,7 +122,6 @@ export class ListenerService {
         this.logMessage(message.getFromUser(), roomId, debugMessage);
     }
 
-    //TODO: this should be in its own service I think. SyncService or something like that. 
     public handleClientUpdate(io: any, m: any): void {
         let debugMessage = '';
         let message = new ClientUpdateMessage(m);
@@ -135,11 +135,17 @@ export class ListenerService {
             let leaderServerUser = this.roomService.getLeaderFromRoom(roomId.toString());
             if(leaderServerUser) {
                 if(currentServerUser.getId() === leaderServerUser.getId()) {
-                    //TODO: need to add the "next up" song to the message
+                    let queue = this.roomService.getRoomQueue(roomId.toString());
+                    
+                    if(message.getRemoveMostRecentSong()) {
+                        queue.shift();
+                        this.emitMessageToRoom(io, roomId.toString(), 'queue', message); //give everyone the latest queue
+                    }
+
+                    message.setCurrentQueue(queue);
+                    message.setDebugMessage(debugMessage);
                     this.emitMessageToRoom(io, roomId.toString(), 'leader-update', message);
                 }
-            } else {
-                //TODO: we've lost our leader and need to elect a new one. why not the current user?
             }
         } else {
             debugMessage = 'client update request failed';
@@ -162,10 +168,11 @@ export class ListenerService {
     private logMessage(user: User, roomId: number, message: string) {
         let userId: string = (user && user.getId()) ? user.getId().toString() : 'not provided';
         let userName: string = (user && user.getName()) ? user.getName() : 'not provided';
+        let isLeader: string = (user && user.getIsLeader()) ? "Yes" : "No";
         let roomIdString: string = (roomId) ? roomId.toString() : 'not provided';
         let messageString: string = (message) ? message : 'not provided';
 
-        console.log('[%s][userId: %s][userName: %s][roomId: %s][message: %s]', 
-            new Date().toUTCString(), userId, userName, roomIdString, messageString);
+        console.log('[%s][userId: %s][userName: %s][isLeader: %s][roomId: %s][message: %s]', 
+            new Date().toUTCString(), userId, userName, isLeader, roomIdString, messageString);
     }
 }

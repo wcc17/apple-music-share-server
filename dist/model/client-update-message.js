@@ -35,6 +35,8 @@ var ClientUpdateMessage = /** @class */ (function (_super) {
         _this.currentPlaybackTime = message.currentPlaybackTime;
         _this.currentPlaybackDuration = message.currentPlaybackDuration;
         _this.currentPlaybackState = message.currentPlaybackState;
+        _this.forcePlayback = message.forcePlayback;
+        _this.removeMostRecentSong = message.removeMostRecentSong;
         return _this;
     }
     ClientUpdateMessage.prototype.getCurrentPlaybackTime = function () {
@@ -45,6 +47,12 @@ var ClientUpdateMessage = /** @class */ (function (_super) {
     };
     ClientUpdateMessage.prototype.getCurrentPlaybackState = function () {
         return this.currentPlaybackState;
+    };
+    ClientUpdateMessage.prototype.getForcePlayback = function () {
+        return this.forcePlayback;
+    };
+    ClientUpdateMessage.prototype.getRemoveMostRecentSong = function () {
+        return this.removeMostRecentSong;
     };
     return ClientUpdateMessage;
 }(message_1.Message));

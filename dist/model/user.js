@@ -26,6 +26,24 @@ var User = /** @class */ (function () {
     User.prototype.setIsLeader = function (isLeader) {
         this.isLeader = isLeader;
     };
+    User.prototype.getCurrentPlaybackTime = function () {
+        return this.currentPlaybackTime;
+    };
+    User.prototype.setCurrentPlaybackTime = function (playbackTime) {
+        this.currentPlaybackTime = playbackTime;
+    };
+    User.prototype.getCurrentPlaybackDuration = function () {
+        return this.currentPlaybackDuration;
+    };
+    User.prototype.setCurrentPlaybackDuration = function (playbackDuration) {
+        this.currentPlaybackDuration = playbackDuration;
+    };
+    User.prototype.getCurrentPlaybackState = function () {
+        return this.currentPlaybackState;
+    };
+    User.prototype.setCurrentPlaybackState = function (playbackState) {
+        this.currentPlaybackState = playbackState;
+    };
     return User;
 }());
 exports.User = User;

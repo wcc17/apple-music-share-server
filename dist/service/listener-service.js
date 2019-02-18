@@ -102,14 +102,20 @@ var ListenerService = /** @class */ (function () {
         var clientUser = message.getFromUser();
         var roomId = message.getFromUser().getRoomId();
         if (this.isValidRequest(io, roomId, message)) {
-            debugMessage = ' is sending up to date info to server';
+            debugMessage = 'is sending up to date info to server';
             var currentServerUser = this.roomService.getUserFromRoom(roomId.toString(), clientUser.getId());
             var leaderServerUser = this.roomService.getLeaderFromRoom(roomId.toString());
-            if (currentServerUser.getId() === leaderServerUser.getId()) {
-                //the current user is the leader and we only need to update his info
-            }
-            else {
-                //the current user needs to be updated for the server and we need to send them the leader's updated info
+            if (leaderServerUser) {
+                if (currentServerUser.getId() === leaderServerUser.getId()) {
+                    var queue = this.roomService.getRoomQueue(roomId.toString());
+                    if (message.getRemoveMostRecentSong()) {
+                        queue.shift();
+                        this.emitMessageToRoom(io, roomId.toString(), 'queue', message); //give everyone the latest queue
+                    }
+                    message.setCurrentQueue(queue);
+                    message.setDebugMessage(debugMessage);
+                    this.emitMessageToRoom(io, roomId.toString(), 'leader-update', message);
+                }
             }
         }
         else {
@@ -128,9 +134,10 @@ var ListenerService = /** @class */ (function () {
     ListenerService.prototype.logMessage = function (user, roomId, message) {
         var userId = (user && user.getId()) ? user.getId().toString() : 'not provided';
         var userName = (user && user.getName()) ? user.getName() : 'not provided';
+        var isLeader = (user && user.getIsLeader()) ? "Yes" : "No";
         var roomIdString = (roomId) ? roomId.toString() : 'not provided';
         var messageString = (message) ? message : 'not provided';
-        console.log('[%s][userId: %s][userName: %s][roomId: %s][message: %s]', new Date().toUTCString(), userId, userName, roomIdString, messageString);
+        console.log('[%s][userId: %s][userName: %s][isLeader: %s][roomId: %s][message: %s]', new Date().toUTCString(), userId, userName, isLeader, roomIdString, messageString);
     };
     return ListenerService;
 }());
