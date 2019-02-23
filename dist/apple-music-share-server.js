@@ -36,12 +36,17 @@ var AppleMusicShareServer = /** @class */ (function () {
         });
         this.io.on('connect', function (socket) {
             try {
+                //we can set these values here because each socket is mapped to one user
+                var userId_1 = undefined;
+                var roomId_1 = undefined;
                 console.log('Connected client on port %s.', _this.port);
                 socket.on('join-room', function (m) {
                     _this.listenerService.handleJoinRoom(_this.io, m, socket);
                 });
                 socket.on('create-room', function (m) {
-                    _this.listenerService.handleCreateRoom(_this.io, m, socket);
+                    var user = _this.listenerService.handleCreateRoom(_this.io, m, socket);
+                    userId_1 = user.getId();
+                    roomId_1 = user.getRoomId();
                 });
                 socket.on('message', function (m) {
                     _this.listenerService.handleMessage(_this.io, m);
@@ -53,10 +58,12 @@ var AppleMusicShareServer = /** @class */ (function () {
                     _this.listenerService.handleQueueRequest(_this.io, m);
                 });
                 socket.on('client-update', function (m) {
-                    _this.listenerService.handleClientUpdate(_this.io, m);
+                    _this.listenerService.handleClientUpdate(_this.io, m, socket);
                 });
-                socket.on('disconnect', function () {
-                    //TODO: do I need to disconnect this particular user from the room they're in?
+                socket.on('disconnect', function (m) {
+                    if (userId_1 && roomId_1) {
+                        _this.listenerService.handleClientDisconnect(_this.io, userId_1, roomId_1);
+                    }
                     console.log('Client disconnected');
                 });
             }

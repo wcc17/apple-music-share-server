@@ -21,12 +21,17 @@ export class RoomService {
         this.addObjectToQueue(key, song, this.roomQueues);
     }
 
-    public addUserToRoom(key: string, user: User) {
-        this.addObjectToQueue(key, user, this.roomUsers);
+    public addUserToRoom(socket: any, roomId: string, user: User) {
+        socket.join(roomId);
+        this.addObjectToQueue(roomId, user, this.roomUsers);
     }
 
     public getRoomQueue(roomId: string): Song[] {
         return this.roomQueues.get(roomId.toString());
+    }
+
+    public setRoomQueue(roomId: string, queue: Song[]): void {
+        this.roomQueues.put(roomId.toString(), queue);
     }
 
     public getRoomUsers(roomId: string): User[] {
@@ -57,15 +62,21 @@ export class RoomService {
             }
         }
 
-        //TODO: if for some reason the user left, we should make another user the leader
         return null;
+    }
+
+    public promoteUserToLeaderInRoom(newLeaderUser: User, roomId: string): void {
+        let users: User[] = this.getRoomUsers(roomId);
+        users.forEach((user, index) => {
+            if(newLeaderUser.getId() === user.getId()) {
+                users[index].setIsLeader(true);
+            }
+        });
     }
 
     //TODO: need to do this in a way that old roomIds can be re-used without restarting the whole server
     //TODO: this is stupid right
     public getNextRoomId(io: any): number {
-        let rooms: any[] = this.getSocketRooms(io);
-
         this.roomId++;
         while(this.checkExistingRoom(io, this.roomId)) {
             this.roomId++;
@@ -82,6 +93,35 @@ export class RoomService {
         }
     
         return false;
+    }
+
+    public removeUserFromRoom(userId: number, roomId: number): void {
+        let users: User[] = this.getRoomUsers(roomId.toString());
+
+        var i = users.length;
+        while(i--) {
+            if(users[i].getId() === userId) {
+                users.splice(i, 1);
+                break;
+            }
+        }
+    }
+
+    public handleDisconnectedUser(io: any, socket: any, user: User, roomId: number): User {
+        //there is a chance here that the client will still be sending updates, but will have been disconnected
+        //if the client is sending a user id and a room id:
+            //check if the room exists. If so, join the room
+            //if the room does not exist, create the room, make the user the leader and move on. Make sure to keep the client's copy of the queue if possible
+        let roomExists: boolean = this.checkExistingRoom(io, roomId);
+        if(roomExists) {
+            user.setIsLeader(false);
+        } else {
+            user.setIsLeader(true);
+            this.addRoom(roomId.toString());
+        }
+
+        this.addUserToRoom(socket, roomId.toString(), user);
+        return user;
     }
 
     private addObjectToQueue(key: string, obj: any, queue: JSDictionary<string, any[]>): void {

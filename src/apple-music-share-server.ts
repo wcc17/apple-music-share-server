@@ -3,6 +3,7 @@ import * as express from 'express';
 import * as socketIo from 'socket.io';
 import { ListenerService } from './service/listener-service';
 import { EmitService } from './service/emit-service';
+import { User } from './model/user';
 
 export class AppleMusicShareServer {
     public static readonly PORT:number = 8080;
@@ -51,6 +52,9 @@ export class AppleMusicShareServer {
 
         this.io.on('connect', (socket: any) => {
             try {
+                //we can set these values here because each socket is mapped to one user
+                let userId: number = undefined;
+                let roomId: number = undefined;
                 console.log('Connected client on port %s.', this.port);
 
                 socket.on('join-room', (m: any) => {
@@ -58,7 +62,9 @@ export class AppleMusicShareServer {
                 });
 
                 socket.on('create-room', (m: any) => {
-                    this.listenerService.handleCreateRoom(this.io, m, socket);
+                    let user: User = this.listenerService.handleCreateRoom(this.io, m, socket);
+                    userId = user.getId();
+                    roomId = user.getRoomId();
                 })
                 
                 socket.on('message', (m: any) => {
@@ -74,11 +80,14 @@ export class AppleMusicShareServer {
                 });
 
                 socket.on('client-update', (m: any) => {
-                    this.listenerService.handleClientUpdate(this.io, m);
+                    this.listenerService.handleClientUpdate(this.io, m, socket);
                 });
 
-                socket.on('disconnect', () => {
-                    //TODO: do I need to disconnect this particular user from the room they're in?
+                socket.on('disconnect', (m: any) => {
+                    if(userId && roomId) {
+                        this.listenerService.handleClientDisconnect(this.io, userId, roomId);
+                    }
+
                     console.log('Client disconnected');
                 });
             } catch (error) {

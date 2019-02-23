@@ -17,6 +17,10 @@ export class Message {
         return this.from;
     }
 
+    public setFromUser(user: User): void {
+        this.from = user;
+    }
+
     public getAction(): Action {
         return this.action;
     }

@@ -13,11 +13,15 @@ var RoomService = /** @class */ (function () {
     RoomService.prototype.addSongToQueue = function (key, song) {
         this.addObjectToQueue(key, song, this.roomQueues);
     };
-    RoomService.prototype.addUserToRoom = function (key, user) {
-        this.addObjectToQueue(key, user, this.roomUsers);
+    RoomService.prototype.addUserToRoom = function (socket, roomId, user) {
+        socket.join(roomId);
+        this.addObjectToQueue(roomId, user, this.roomUsers);
     };
     RoomService.prototype.getRoomQueue = function (roomId) {
         return this.roomQueues.get(roomId.toString());
+    };
+    RoomService.prototype.setRoomQueue = function (roomId, queue) {
+        this.roomQueues.put(roomId.toString(), queue);
     };
     RoomService.prototype.getRoomUsers = function (roomId) {
         var users = this.roomUsers.get(roomId.toString());
@@ -46,13 +50,19 @@ var RoomService = /** @class */ (function () {
                 return user;
             }
         }
-        //TODO: if for some reason the user left, we should make another user the leader
         return null;
+    };
+    RoomService.prototype.promoteUserToLeaderInRoom = function (newLeaderUser, roomId) {
+        var users = this.getRoomUsers(roomId);
+        users.forEach(function (user, index) {
+            if (newLeaderUser.getId() === user.getId()) {
+                users[index].setIsLeader(true);
+            }
+        });
     };
     //TODO: need to do this in a way that old roomIds can be re-used without restarting the whole server
     //TODO: this is stupid right
     RoomService.prototype.getNextRoomId = function (io) {
-        var rooms = this.getSocketRooms(io);
         this.roomId++;
         while (this.checkExistingRoom(io, this.roomId)) {
             this.roomId++;
@@ -65,6 +75,32 @@ var RoomService = /** @class */ (function () {
             return true;
         }
         return false;
+    };
+    RoomService.prototype.removeUserFromRoom = function (userId, roomId) {
+        var users = this.getRoomUsers(roomId.toString());
+        var i = users.length;
+        while (i--) {
+            if (users[i].getId() === userId) {
+                users.splice(i, 1);
+                break;
+            }
+        }
+    };
+    RoomService.prototype.handleDisconnectedUser = function (io, socket, user, roomId) {
+        //there is a chance here that the client will still be sending updates, but will have been disconnected
+        //if the client is sending a user id and a room id:
+        //check if the room exists. If so, join the room
+        //if the room does not exist, create the room, make the user the leader and move on. Make sure to keep the client's copy of the queue if possible
+        var roomExists = this.checkExistingRoom(io, roomId);
+        if (roomExists) {
+            user.setIsLeader(false);
+        }
+        else {
+            user.setIsLeader(true);
+            this.addRoom(roomId.toString());
+        }
+        this.addUserToRoom(socket, roomId.toString(), user);
+        return user;
     };
     RoomService.prototype.addObjectToQueue = function (key, obj, queue) {
         if (queue.get(key)) {

@@ -16,7 +16,7 @@ export class ListenerService {
        this.userService = new UserService();
    }
 
-    public handleCreateRoom(io: any, m: any, socket: any): void {
+    public handleCreateRoom(io: any, m: any, socket: any): User {
         let debugMessage: string = '';
         let message = new Message(m);
         let isValidUser = this.userService.checkForValidUserInMessageIgnoreRoomId(message);
@@ -29,9 +29,8 @@ export class ListenerService {
             message.getFromUser().setRoomId(roomId);
             message.setDebugMessage(debugMessage);
             
-            socket.join(roomId);
             this.roomService.addRoom(roomId.toString());
-            this.roomService.addUserToRoom(roomId.toString(), message.getFromUser());
+            this.roomService.addUserToRoom(socket, roomId.toString(), message.getFromUser());
     
             this.emitMessageToRoom(io, roomId.toString(), 'room-joined', message);
         } else {
@@ -41,9 +40,10 @@ export class ListenerService {
         }
 
         this.logMessage(message.getFromUser(), null, debugMessage);
+        return message.getFromUser();
     }
     
-    public handleJoinRoom(io: any, m: any, socket: any): void {
+    public handleJoinRoom(io: any, m: any, socket: any): User {
         let debugMessage: string = '';
         let message: Message = new Message(m);
         let roomId: number = message.getFromUser().getRoomId();
@@ -51,7 +51,7 @@ export class ListenerService {
         if(this.isValidRequest(io, roomId, message)) {
             debugMessage = 'joined room';
             
-            this.roomService.addUserToRoom(message.getFromUser().getRoomId().toString(), message.getFromUser());
+            this.roomService.addUserToRoom(socket, message.getFromUser().getRoomId().toString(), message.getFromUser());
             socket.join(message.getFromUser().getRoomId());
             
             message.setDebugMessage(debugMessage);
@@ -63,6 +63,7 @@ export class ListenerService {
         }
 
         this.logMessage(message.getFromUser(), roomId, debugMessage);
+        return message.getFromUser();
     }
     
     public handleMessage(io: any, m: any): void {
@@ -122,7 +123,7 @@ export class ListenerService {
         this.logMessage(message.getFromUser(), roomId, debugMessage);
     }
 
-    public handleClientUpdate(io: any, m: any): void {
+    public handleClientUpdate(io: any, m: any, socket: any): void {
         let debugMessage = '';
         let message = new ClientUpdateMessage(m);
         let clientUser: User = message.getFromUser();
@@ -135,23 +136,50 @@ export class ListenerService {
             let leaderServerUser = this.roomService.getLeaderFromRoom(roomId.toString());
             if(leaderServerUser) {
                 if(currentServerUser.getId() === leaderServerUser.getId()) {
-                    let queue = this.roomService.getRoomQueue(roomId.toString());
-                    
-                    if(message.getRemoveMostRecentSong()) {
-                        queue.shift();
-                        this.emitMessageToRoom(io, roomId.toString(), 'queue', message); //give everyone the latest queue
-                    }
-
-                    message.setCurrentQueue(queue);
                     message.setDebugMessage(debugMessage);
-                    this.emitMessageToRoom(io, roomId.toString(), 'leader-update', message);
+                    this.handleLeaderClientUpdate(io, message, roomId);
                 }
+            } else {
+                debugMessage = ' is sending up to date info to server and is being promoted to leader';
+                message.setDebugMessage(debugMessage);
+                this.handleUserPromotion(io, message, roomId, clientUser);
             }
         } else {
             debugMessage = 'client update request failed';
+
+            if(clientUser && clientUser.getId() && roomId) {
+                debugMessage = 'handling user that was disconnected and reconnected';
+                this.roomService.handleDisconnectedUser(io, socket, clientUser, roomId);
+            }
         }
 
         this.logMessage(clientUser, roomId, debugMessage);
+    }
+
+    public handleClientDisconnect(io: any, userId: number, roomId: number): void {
+        console.log(io.sockets.adapter.rooms);
+        this.roomService.removeUserFromRoom(userId, roomId);
+    }
+
+    private handleUserPromotion(io: any, message: ClientUpdateMessage, roomId: number, clientUser: User): void {
+        //if no leader is return from the room, make this user the leader and handle the client leader update
+        this.roomService.promoteUserToLeaderInRoom(clientUser, roomId.toString());
+        clientUser.setIsLeader(true);
+        message.setFromUser(clientUser);
+
+        this.handleLeaderClientUpdate(io, message, roomId);
+    }
+
+    private handleLeaderClientUpdate(io: any, message: ClientUpdateMessage, roomId: number) {
+        let queue = this.roomService.getRoomQueue(roomId.toString());
+                    
+        if(message.getRemoveMostRecentSong()) {
+            queue.shift();
+            this.emitMessageToRoom(io, roomId.toString(), 'queue', message); //give everyone the latest queue
+        }
+
+        message.setCurrentQueue(queue);
+        this.emitMessageToRoom(io, roomId.toString(), 'leader-update', message);
     }
 
     private isValidRequest(io: any, roomId: number, message: Message): boolean {

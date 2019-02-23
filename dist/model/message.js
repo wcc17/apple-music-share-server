@@ -9,6 +9,9 @@ var Message = /** @class */ (function () {
     Message.prototype.getFromUser = function () {
         return this.from;
     };
+    Message.prototype.setFromUser = function (user) {
+        this.from = user;
+    };
     Message.prototype.getAction = function () {
         return this.action;
     };
