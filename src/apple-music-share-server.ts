@@ -23,8 +23,6 @@ export class AppleMusicShareServer {
         this.listen();
 
         this.listenerService = new ListenerService();
-        // this.emitService = new EmitService(this.listenerService.getRoomQueues(), 
-        //     this.listenerService.getRoomUsers(), this.io.sockets.adapter.rooms, this.io);
     }
 
     private createApp(): void {
