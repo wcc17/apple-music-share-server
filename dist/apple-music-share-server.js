@@ -12,8 +12,6 @@ var AppleMusicShareServer = /** @class */ (function () {
         this.sockets();
         this.listen();
         this.listenerService = new listener_service_1.ListenerService();
-        // this.emitService = new EmitService(this.listenerService.getRoomQueues(), 
-        //     this.listenerService.getRoomUsers(), this.io.sockets.adapter.rooms, this.io);
     }
     AppleMusicShareServer.prototype.createApp = function () {
         this.app = express();
@@ -59,6 +57,9 @@ var AppleMusicShareServer = /** @class */ (function () {
                 });
                 socket.on('client-update', function (m) {
                     _this.listenerService.handleClientUpdate(_this.io, m, socket);
+                });
+                socket.on('remove-from-queue', function (m) {
+                    _this.listenerService.handleRemoveFromQueueRequest(_this.io, m, m.content);
                 });
                 socket.on('disconnect', function (m) {
                     if (userId_1 && roomId_1) {

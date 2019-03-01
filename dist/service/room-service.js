@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var dictionary_1 = require("../util/dictionary");
+var user_1 = require("../model/user");
 var RoomService = /** @class */ (function () {
     function RoomService() {
         this.roomQueues = new dictionary_1.JSDictionary();
@@ -10,8 +11,9 @@ var RoomService = /** @class */ (function () {
     RoomService.prototype.addRoom = function (roomId) {
         this.roomQueues.put(roomId.toString(), []);
     };
-    RoomService.prototype.addSongToQueue = function (key, song) {
-        this.addObjectToQueue(key, song, this.roomQueues);
+    RoomService.prototype.addSongToQueue = function (roomId, song) {
+        song.orderInQueue = this.getOrderInQueue(roomId, song);
+        this.addObjectToQueue(roomId, song, this.roomQueues);
     };
     RoomService.prototype.addUserToRoom = function (socket, roomId, user) {
         socket.join(roomId);
@@ -86,6 +88,23 @@ var RoomService = /** @class */ (function () {
             }
         }
     };
+    RoomService.prototype.removeSongFromQueue = function (roomId, song) {
+        if (this.roomQueues.get(roomId)) {
+            var queue = this.roomQueues.get(roomId);
+            var requestingUser = new user_1.User(song.requestedBy);
+            var i = queue.length;
+            while (i--) {
+                var userToMatch = new user_1.User(queue[i].requestedBy);
+                if (requestingUser.getId() === userToMatch.getId()
+                    && song.id === queue[i].id
+                    && song.orderInQueue === queue[i].orderInQueue) {
+                    queue.splice(i, 1);
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
     RoomService.prototype.handleDisconnectedUser = function (io, socket, user, roomId) {
         //there is a chance here that the client will still be sending updates, but will have been disconnected
         //if the client is sending a user id and a room id:
@@ -101,6 +120,21 @@ var RoomService = /** @class */ (function () {
         }
         this.addUserToRoom(socket, roomId.toString(), user);
         return user;
+    };
+    RoomService.prototype.getOrderInQueue = function (roomId, song) {
+        /**
+         * orderInQueue is more of an ID that just makes sure we're removing the song we think we're removing
+         * if the user tries to delete it. We're not changing the order of the array at any point, so even when
+         * songs are removed and certain "orderInQueue" values don't exist anymore, the songs will still play in
+         * the order that the UI expects them (and shows them)
+         */
+        var roomQueue = this.getRoomQueue(roomId);
+        if (roomQueue) {
+            return this.getRoomQueue(roomId).length;
+        }
+        else {
+            return 0;
+        }
     };
     RoomService.prototype.addObjectToQueue = function (key, obj, queue) {
         if (queue.get(key)) {

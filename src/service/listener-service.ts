@@ -102,6 +102,32 @@ export class ListenerService {
 
         this.logMessage(message.getFromUser(), roomId, debugMessage);
     }
+
+    public handleRemoveFromQueueRequest(io: any, m: any, song: Song): void {
+        let debugMessage = '';
+        let message = new Message(m);
+        let roomId: number = message.getFromUser().getRoomId();
+
+        if(this.isValidRequest(io, roomId, message)) {
+            let songRemoved: boolean = this.roomService.removeSongFromQueue(roomId.toString(), song);
+
+            if(songRemoved) {
+                debugMessage = ': removed the song ' + song.attributes.name + song.attributes.artistName;
+            } else {
+                //TODO: should I send an error message back? Or is updating the queue enough? should i even update the queue?
+                debugMessage = ': tried to remove the song ' + song.attributes.name + ' but it was not found for this user';
+            }
+
+            message.setDebugMessage(debugMessage);
+            message.setCurrentQueue(this.roomService.getRoomQueue(roomId.toString()));
+            this.emitMessageToRoom(io, roomId.toString(), 'queue', message);
+
+        } else {
+            debugMessage = 'failed to remove song from queue';
+        }
+
+        this.logMessage(message.getFromUser(), roomId, debugMessage);
+    }
     
     public handleQueueRequest(io: any, m: any): void {
         let debugMessage = '';

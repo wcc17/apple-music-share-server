@@ -81,6 +81,10 @@ export class AppleMusicShareServer {
                     this.listenerService.handleClientUpdate(this.io, m, socket);
                 });
 
+                socket.on('remove-from-queue', (m: any) => {
+                    this.listenerService.handleRemoveFromQueueRequest(this.io, m, m.content);
+                })
+
                 socket.on('disconnect', (m: any) => {
                     if(userId && roomId) {
                         this.listenerService.handleClientDisconnect(this.io, userId, roomId);

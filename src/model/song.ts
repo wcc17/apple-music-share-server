@@ -25,6 +25,7 @@ export class Song {
     //not from apple music
     requestedBy: User;
     requestedTime: Date;
+    orderInQueue: number;
 }
 
 export class Attributes {

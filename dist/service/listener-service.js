@@ -80,6 +80,28 @@ var ListenerService = /** @class */ (function () {
         }
         this.logMessage(message.getFromUser(), roomId, debugMessage);
     };
+    ListenerService.prototype.handleRemoveFromQueueRequest = function (io, m, song) {
+        var debugMessage = '';
+        var message = new message_1.Message(m);
+        var roomId = message.getFromUser().getRoomId();
+        if (this.isValidRequest(io, roomId, message)) {
+            var songRemoved = this.roomService.removeSongFromQueue(roomId.toString(), song);
+            if (songRemoved) {
+                debugMessage = ': removed the song ' + song.attributes.name + song.attributes.artistName;
+            }
+            else {
+                //TODO: should I send an error message back? Or is updating the queue enough? should i even update the queue?
+                debugMessage = ': tried to remove the song ' + song.attributes.name + ' but it was not found for this user';
+            }
+            message.setDebugMessage(debugMessage);
+            message.setCurrentQueue(this.roomService.getRoomQueue(roomId.toString()));
+            this.emitMessageToRoom(io, roomId.toString(), 'queue', message);
+        }
+        else {
+            debugMessage = 'failed to remove song from queue';
+        }
+        this.logMessage(message.getFromUser(), roomId, debugMessage);
+    };
     ListenerService.prototype.handleQueueRequest = function (io, m) {
         var debugMessage = '';
         var message = new message_1.Message(m);

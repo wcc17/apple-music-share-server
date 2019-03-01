@@ -17,8 +17,9 @@ export class RoomService {
         this.roomQueues.put(roomId.toString(), []);
     }
 
-    public addSongToQueue(key: string, song: Song) {
-        this.addObjectToQueue(key, song, this.roomQueues);
+    public addSongToQueue(roomId: string, song: Song) {
+        song.orderInQueue = this.getOrderInQueue(roomId, song);
+        this.addObjectToQueue(roomId, song, this.roomQueues);
     }
 
     public addUserToRoom(socket: any, roomId: string, user: User) {
@@ -107,6 +108,27 @@ export class RoomService {
         }
     }
 
+    public removeSongFromQueue(roomId: string, song: Song): boolean {
+        if(this.roomQueues.get(roomId)) {
+            let queue: Song[] = this.roomQueues.get(roomId);
+            let requestingUser: User = new User(song.requestedBy);
+
+            var i = queue.length;
+            while(i--) {
+                let userToMatch: User = new User(queue[i].requestedBy);
+
+                if(requestingUser.getId() === userToMatch.getId()
+                    && song.id === queue[i].id
+                    && song.orderInQueue === queue[i].orderInQueue) {
+                    queue.splice(i, 1);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public handleDisconnectedUser(io: any, socket: any, user: User, roomId: number): User {
         //there is a chance here that the client will still be sending updates, but will have been disconnected
         //if the client is sending a user id and a room id:
@@ -122,6 +144,21 @@ export class RoomService {
 
         this.addUserToRoom(socket, roomId.toString(), user);
         return user;
+    }
+
+    private getOrderInQueue(roomId: string, song: Song): number {
+        /**
+         * orderInQueue is more of an ID that just makes sure we're removing the song we think we're removing
+         * if the user tries to delete it. We're not changing the order of the array at any point, so even when
+         * songs are removed and certain "orderInQueue" values don't exist anymore, the songs will still play in 
+         * the order that the UI expects them (and shows them)
+         */
+        let roomQueue = this.getRoomQueue(roomId);
+        if(roomQueue) {
+            return this.getRoomQueue(roomId).length;
+        } else {
+            return 0;
+        }
     }
 
     private addObjectToQueue(key: string, obj: any, queue: JSDictionary<string, any[]>): void {
