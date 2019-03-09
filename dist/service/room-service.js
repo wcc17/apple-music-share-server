@@ -99,6 +99,7 @@ var RoomService = /** @class */ (function () {
                     && song.id === queue[i].id
                     && song.orderInQueue === queue[i].orderInQueue) {
                     queue.splice(i, 1);
+                    this.fixQueueOrder(roomId); //only fix the queue order if a song was actually removed
                     return true;
                 }
             }
@@ -106,10 +107,6 @@ var RoomService = /** @class */ (function () {
         return false;
     };
     RoomService.prototype.handleDisconnectedUser = function (io, socket, user, roomId) {
-        //there is a chance here that the client will still be sending updates, but will have been disconnected
-        //if the client is sending a user id and a room id:
-        //check if the room exists. If so, join the room
-        //if the room does not exist, create the room, make the user the leader and move on. Make sure to keep the client's copy of the queue if possible
         var roomExists = this.checkExistingRoom(io, roomId);
         if (roomExists) {
             user.setIsLeader(false);
@@ -122,18 +119,23 @@ var RoomService = /** @class */ (function () {
         return user;
     };
     RoomService.prototype.getOrderInQueue = function (roomId, song) {
-        /**
-         * orderInQueue is more of an ID that just makes sure we're removing the song we think we're removing
-         * if the user tries to delete it. We're not changing the order of the array at any point, so even when
-         * songs are removed and certain "orderInQueue" values don't exist anymore, the songs will still play in
-         * the order that the UI expects them (and shows them)
-         */
         var roomQueue = this.getRoomQueue(roomId);
         if (roomQueue) {
             return this.getRoomQueue(roomId).length;
         }
         else {
             return 0;
+        }
+    };
+    RoomService.prototype.fixQueueOrder = function (roomId) {
+        var queue = this.roomQueues.get(roomId);
+        if (queue) {
+            var i = 0;
+            for (var _i = 0, queue_1 = queue; _i < queue_1.length; _i++) {
+                var song = queue_1[_i];
+                song.orderInQueue = i;
+                i++;
+            }
         }
     };
     RoomService.prototype.addObjectToQueue = function (key, obj, queue) {

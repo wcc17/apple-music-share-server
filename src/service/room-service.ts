@@ -118,9 +118,10 @@ export class RoomService {
                 let userToMatch: User = new User(queue[i].requestedBy);
 
                 if(requestingUser.getId() === userToMatch.getId()
-                    && song.id === queue[i].id
-                    && song.orderInQueue === queue[i].orderInQueue) {
+                        && song.id === queue[i].id
+                        && song.orderInQueue === queue[i].orderInQueue) {
                     queue.splice(i, 1);
+                    this.fixQueueOrder(roomId); //only fix the queue order if a song was actually removed
                     return true;
                 }
             }
@@ -130,10 +131,6 @@ export class RoomService {
     }
 
     public handleDisconnectedUser(io: any, socket: any, user: User, roomId: number): User {
-        //there is a chance here that the client will still be sending updates, but will have been disconnected
-        //if the client is sending a user id and a room id:
-            //check if the room exists. If so, join the room
-            //if the room does not exist, create the room, make the user the leader and move on. Make sure to keep the client's copy of the queue if possible
         let roomExists: boolean = this.checkExistingRoom(io, roomId);
         if(roomExists) {
             user.setIsLeader(false);
@@ -147,17 +144,23 @@ export class RoomService {
     }
 
     private getOrderInQueue(roomId: string, song: Song): number {
-        /**
-         * orderInQueue is more of an ID that just makes sure we're removing the song we think we're removing
-         * if the user tries to delete it. We're not changing the order of the array at any point, so even when
-         * songs are removed and certain "orderInQueue" values don't exist anymore, the songs will still play in 
-         * the order that the UI expects them (and shows them)
-         */
         let roomQueue = this.getRoomQueue(roomId);
         if(roomQueue) {
             return this.getRoomQueue(roomId).length;
         } else {
             return 0;
+        }
+    }
+
+    private fixQueueOrder(roomId: string): void {
+        let queue: Song[] = this.roomQueues.get(roomId);
+
+        if(queue) {
+            let i: number = 0;
+            for(let song of queue) {
+                song.orderInQueue = i;
+                i++;
+            }
         }
     }
 
