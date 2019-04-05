@@ -5,11 +5,13 @@ import { User } from '../model/user';
 export class RoomService {
     private roomQueues: JSDictionary<string, Song[]>;
     private roomUsers: JSDictionary<string, User[]>;
+    private roomVotesToSkipDict: JSDictionary<string, number>;
     private roomId: number;
 
     constructor() {
         this.roomQueues = new JSDictionary<string, Song[]>();
         this.roomUsers = new JSDictionary<string, User[]>();
+        this.roomVotesToSkipDict = new JSDictionary<string, number>();
         this.roomId = 100000;
     }
 
@@ -29,6 +31,10 @@ export class RoomService {
 
     public getRoomQueue(roomId: string): Song[] {
         return this.roomQueues.get(roomId.toString());
+    }
+
+    public getRoomVotesToSkip(roomId: string): number {
+        return this.roomVotesToSkipDict.get(roomId.toString());
     }
 
     public setRoomQueue(roomId: string, queue: Song[]): void {
@@ -143,6 +149,41 @@ export class RoomService {
         return user;
     }
 
+    public incrementVoteCount(roomId: string, user: User): number {
+        this.setVoteCountForRoom(roomId, this.getRoomVotesToSkip(roomId)+1);
+        this.setUserHasVotedForRoom(user, roomId);
+        return this.getRoomVotesToSkip(roomId);
+    }
+
+    public resetVoteCount(roomId: string): void {
+        this.setVoteCountForRoom(roomId, 0);
+        this.resetUserHasVotedForAllUsersInRoom(roomId);
+    }
+
+    public getRoomUserCount(roomId: string): number {
+        return this.getRoomUsers(roomId).length;
+    }
+
+    private setVoteCountForRoom(roomId: string, newVoteCount: number): void {
+        this.roomVotesToSkipDict.put(roomId, newVoteCount);
+    }
+
+    private setUserHasVotedForRoom(userThatVoted: User, roomId: string) {
+       let users: User[] = this.getRoomUsers(roomId);
+       users.forEach((user, index) => {
+           if(userThatVoted.getId() === user.getId()) {
+               users[index].setHasVotedForCurrentSong(true);
+           }
+       });
+    }
+
+    private resetUserHasVotedForAllUsersInRoom(roomId: string) {
+        let users: User[] = this.getRoomUsers(roomId);
+        users.forEach((user, index) => {
+            users[index].setHasVotedForCurrentSong(false);
+        });
+    }
+
     private getOrderInQueue(roomId: string, song: Song): number {
         let roomQueue = this.getRoomQueue(roomId);
         if(roomQueue) {
@@ -179,6 +220,7 @@ export class RoomService {
             queue.put(key, [ obj ]);
         }
     }
+    
 
     private getSocketRooms(io: any): any {
         return io.sockets.adapter.rooms;

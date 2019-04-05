@@ -182,6 +182,39 @@ export class ListenerService {
         this.logMessage(clientUser, roomId, debugMessage);
     }
 
+    public handleVoteToSkip(io: any, m: any, socket: any): void {
+        let debugMessage = '';
+        let message = new Message(m);
+        let clientUser: User = message.getFromUser();
+        let roomId = message.getFromUser().getRoomId();
+
+        if(this.isValidRequest(io, roomId, message)) {
+            let queue: Song[] = this.roomService.getRoomQueue(roomId.toString());
+
+            if(queue.length) {
+                let currentServerUser: User = this.roomService.getUserFromRoom(roomId.toString(), clientUser.getId());
+                let voteCount: number = this.roomService.incrementVoteCount(roomId.toString(), currentServerUser);
+                let usersInRoom: number = this.roomService.getRoomUserCount(roomId.toString());
+
+                if(voteCount >= Math.ceil((usersInRoom / 2))) {
+                    debugMessage = ' enough votes cast to skip the current song';
+                    //skip the song
+                    queue = this.removeMostRecentSongFromQueue(queue, roomId.toString(), message, io);
+                    this.emitMessageToRoom(io, roomId.toString(), 'skip-song-for-all', message);
+                } else {
+                    //just send the new vote count
+                    debugMessage = ' sending new vote count to all clients'
+                    message.setVoteCount(this.roomService.getRoomVotesToSkip(roomId.toString()));
+                    this.emitMessageToRoom(io, roomId.toString(), 'new-vote-count', message);
+                }
+            }
+        } else {
+            debugMessage = 'client vote to skip request failed';
+        }
+
+        this.logMessage(clientUser, roomId, debugMessage);
+    }
+
     public handleClientDisconnect(io: any, userId: number, roomId: number): void {
         console.log(io.sockets.adapter.rooms);
         this.roomService.removeUserFromRoom(userId, roomId);
@@ -200,12 +233,23 @@ export class ListenerService {
         let queue = this.roomService.getRoomQueue(roomId.toString());
                     
         if(message.getRemoveMostRecentSong()) {
-            queue.shift();
-            this.emitMessageToRoom(io, roomId.toString(), 'queue', message); //give everyone the latest queue
+            queue = this.removeMostRecentSongFromQueue(queue, roomId.toString(), message, io);
         }
 
         message.setCurrentQueue(queue);
         this.emitMessageToRoom(io, roomId.toString(), 'leader-update', message);
+    }
+
+    private removeMostRecentSongFromQueue(queue: Song[], roomId: string, message: Message, io: any): Song[] {
+        queue.shift();
+        this.roomService.resetVoteCount(roomId.toString());
+
+        message.setCurrentQueue(queue);
+        message.setVoteCount(0);
+        this.emitMessageToRoom(io, roomId.toString(), 'new-vote-count', message); //give everyone the latest vote count
+        this.emitMessageToRoom(io, roomId.toString(), 'queue', message); //give everyone the latest queue
+
+        return queue;
     }
 
     private isValidRequest(io: any, roomId: number, message: Message): boolean {

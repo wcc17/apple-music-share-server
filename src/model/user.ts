@@ -5,6 +5,7 @@ export class User {
     private name: string;
     private roomId: number;
     private isLeader: boolean = false;
+    private hasVotedForCurrentSong: boolean = false;
 
     private currentPlaybackTime?: number;
     private currentPlaybackDuration?: number;
@@ -63,5 +64,13 @@ export class User {
 
     public setCurrentPlaybackState(playbackState: PlaybackState): void {
         this.currentPlaybackState = playbackState;
+    }
+
+    public setHasVotedForCurrentSong(hasVoted: boolean): void {
+        this.hasVotedForCurrentSong = hasVoted;
+    }
+
+    public getHasVotedForCurrentSong(): boolean {
+        return this.hasVotedForCurrentSong;
     }
 }

@@ -83,7 +83,11 @@ export class AppleMusicShareServer {
 
                 socket.on('remove-from-queue', (m: any) => {
                     this.listenerService.handleRemoveFromQueueRequest(this.io, m, m.content);
-                })
+                });
+
+                socket.on('vote-to-skip', (m: any) => {
+                    this.listenerService.handleVoteToSkip(this.io, m, socket);
+                });
 
                 socket.on('disconnect', (m: any) => {
                     if(userId && roomId) {

@@ -6,6 +6,7 @@ var RoomService = /** @class */ (function () {
     function RoomService() {
         this.roomQueues = new dictionary_1.JSDictionary();
         this.roomUsers = new dictionary_1.JSDictionary();
+        this.roomVotesToSkipDict = new dictionary_1.JSDictionary();
         this.roomId = 100000;
     }
     RoomService.prototype.addRoom = function (roomId) {
@@ -21,6 +22,9 @@ var RoomService = /** @class */ (function () {
     };
     RoomService.prototype.getRoomQueue = function (roomId) {
         return this.roomQueues.get(roomId.toString());
+    };
+    RoomService.prototype.getRoomVotesToSkip = function (roomId) {
+        return this.roomVotesToSkipDict.get(roomId.toString());
     };
     RoomService.prototype.setRoomQueue = function (roomId, queue) {
         this.roomQueues.put(roomId.toString(), queue);
@@ -117,6 +121,35 @@ var RoomService = /** @class */ (function () {
         }
         this.addUserToRoom(socket, roomId.toString(), user);
         return user;
+    };
+    RoomService.prototype.incrementVoteCount = function (roomId, user) {
+        this.setVoteCountForRoom(roomId, this.getRoomVotesToSkip(roomId) + 1);
+        this.setUserHasVotedForRoom(user, roomId);
+        return this.getRoomVotesToSkip(roomId);
+    };
+    RoomService.prototype.resetVoteCount = function (roomId) {
+        this.setVoteCountForRoom(roomId, 0);
+        this.resetUserHasVotedForAllUsersInRoom(roomId);
+    };
+    RoomService.prototype.getRoomUserCount = function (roomId) {
+        return this.getRoomUsers(roomId).length;
+    };
+    RoomService.prototype.setVoteCountForRoom = function (roomId, newVoteCount) {
+        this.roomVotesToSkipDict.put(roomId, newVoteCount);
+    };
+    RoomService.prototype.setUserHasVotedForRoom = function (userThatVoted, roomId) {
+        var users = this.getRoomUsers(roomId);
+        users.forEach(function (user, index) {
+            if (userThatVoted.getId() === user.getId()) {
+                users[index].setHasVotedForCurrentSong(true);
+            }
+        });
+    };
+    RoomService.prototype.resetUserHasVotedForAllUsersInRoom = function (roomId) {
+        var users = this.getRoomUsers(roomId);
+        users.forEach(function (user, index) {
+            users[index].setHasVotedForCurrentSong(false);
+        });
     };
     RoomService.prototype.getOrderInQueue = function (roomId, song) {
         var roomQueue = this.getRoomQueue(roomId);

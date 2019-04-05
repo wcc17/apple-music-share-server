@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var User = /** @class */ (function () {
     function User(user) {
         this.isLeader = false;
+        this.hasVotedForCurrentSong = false;
         this.id = user.id;
         this.name = user.name;
         this.roomId = user.roomId;
@@ -43,6 +44,12 @@ var User = /** @class */ (function () {
     };
     User.prototype.setCurrentPlaybackState = function (playbackState) {
         this.currentPlaybackState = playbackState;
+    };
+    User.prototype.setHasVotedForCurrentSong = function (hasVoted) {
+        this.hasVotedForCurrentSong = hasVoted;
+    };
+    User.prototype.getHasVotedForCurrentSong = function () {
+        return this.hasVotedForCurrentSong;
     };
     return User;
 }());

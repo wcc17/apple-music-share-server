@@ -149,6 +149,36 @@ var ListenerService = /** @class */ (function () {
         }
         this.logMessage(clientUser, roomId, debugMessage);
     };
+    ListenerService.prototype.handleVoteToSkip = function (io, m, socket) {
+        var debugMessage = '';
+        var message = new message_1.Message(m);
+        var clientUser = message.getFromUser();
+        var roomId = message.getFromUser().getRoomId();
+        if (this.isValidRequest(io, roomId, message)) {
+            var queue = this.roomService.getRoomQueue(roomId.toString());
+            if (queue.length) {
+                var currentServerUser = this.roomService.getUserFromRoom(roomId.toString(), clientUser.getId());
+                var voteCount = this.roomService.incrementVoteCount(roomId.toString(), currentServerUser);
+                var usersInRoom = this.roomService.getRoomUserCount(roomId.toString());
+                if (voteCount >= Math.ceil((usersInRoom / 2))) {
+                    debugMessage = ' enough votes cast to skip the current song';
+                    //skip the song
+                    queue = this.removeMostRecentSongFromQueue(queue, roomId.toString(), message, io);
+                    this.emitMessageToRoom(io, roomId.toString(), 'skip-song-for-all', message);
+                }
+                else {
+                    //just send the new vote count
+                    debugMessage = ' sending new vote count to all clients';
+                    message.setVoteCount(this.roomService.getRoomVotesToSkip(roomId.toString()));
+                    this.emitMessageToRoom(io, roomId.toString(), 'new-vote-count', message);
+                }
+            }
+        }
+        else {
+            debugMessage = 'client vote to skip request failed';
+        }
+        this.logMessage(clientUser, roomId, debugMessage);
+    };
     ListenerService.prototype.handleClientDisconnect = function (io, userId, roomId) {
         console.log(io.sockets.adapter.rooms);
         this.roomService.removeUserFromRoom(userId, roomId);
@@ -163,11 +193,19 @@ var ListenerService = /** @class */ (function () {
     ListenerService.prototype.handleLeaderClientUpdate = function (io, message, roomId) {
         var queue = this.roomService.getRoomQueue(roomId.toString());
         if (message.getRemoveMostRecentSong()) {
-            queue.shift();
-            this.emitMessageToRoom(io, roomId.toString(), 'queue', message); //give everyone the latest queue
+            queue = this.removeMostRecentSongFromQueue(queue, roomId.toString(), message, io);
         }
         message.setCurrentQueue(queue);
         this.emitMessageToRoom(io, roomId.toString(), 'leader-update', message);
+    };
+    ListenerService.prototype.removeMostRecentSongFromQueue = function (queue, roomId, message, io) {
+        queue.shift();
+        this.roomService.resetVoteCount(roomId.toString());
+        message.setCurrentQueue(queue);
+        message.setVoteCount(0);
+        this.emitMessageToRoom(io, roomId.toString(), 'new-vote-count', message); //give everyone the latest vote count
+        this.emitMessageToRoom(io, roomId.toString(), 'queue', message); //give everyone the latest queue
+        return queue;
     };
     ListenerService.prototype.isValidRequest = function (io, roomId, message) {
         var isValidUser = this.userService.checkForValidUserInMessage(message);

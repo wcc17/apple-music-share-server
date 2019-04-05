@@ -7,6 +7,7 @@ export class Message {
     private action: Action;
     private debugMessage: string;
     private currentQueue: Song[];
+    private voteCount: number;
 
     constructor(message) {
         this.from = new User(message.from);
@@ -43,5 +44,13 @@ export class Message {
 
     public setCurrentQueue(queue: Song[]): void {
         this.currentQueue = queue;
+    }
+
+    public getVoteCount(): number {
+        return this.voteCount;
+    }
+
+    public setVoteCount(voteCount: number): void {
+        this.voteCount = voteCount;
     }
 }

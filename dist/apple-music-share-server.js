@@ -61,6 +61,9 @@ var AppleMusicShareServer = /** @class */ (function () {
                 socket.on('remove-from-queue', function (m) {
                     _this.listenerService.handleRemoveFromQueueRequest(_this.io, m, m.content);
                 });
+                socket.on('vote-to-skip', function (m) {
+                    _this.listenerService.handleVoteToSkip(_this.io, m, socket);
+                });
                 socket.on('disconnect', function (m) {
                     if (userId_1 && roomId_1) {
                         _this.listenerService.handleClientDisconnect(_this.io, userId_1, roomId_1);

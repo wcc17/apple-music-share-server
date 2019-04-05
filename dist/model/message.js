@@ -30,6 +30,12 @@ var Message = /** @class */ (function () {
     Message.prototype.setCurrentQueue = function (queue) {
         this.currentQueue = queue;
     };
+    Message.prototype.getVoteCount = function () {
+        return this.voteCount;
+    };
+    Message.prototype.setVoteCount = function (voteCount) {
+        this.voteCount = voteCount;
+    };
     return Message;
 }());
 exports.Message = Message;
